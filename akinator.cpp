@@ -1,122 +1,173 @@
 #include "akinator.hpp"
 
-void ak_game_init () {
+static size_t get_file_size (FILE* const file_in);
+static bin_node_t *scan_node (char **data);
+static void upload_node (bin_node_t *node, FILE *database_file);
+static void comp_print_similar_path (node_stack_t *path_stack, char *obj_name_1, char *obj_name_2);
+static void comp_print_path_comparison (node_stack_t *path_stack_1, node_stack_t *path_stack_2, char *obj_name_1, char *obj_name_2);
+static bool ask_char (const bin_node_t *node);
+static void def_print_pos_char (const bin_node_t *char_node);
+static void def_print_neg_char (const bin_node_t *char_node);
 
-    printf ("\nUse the exising database?\nprint y if yes, n if no\n");
+void ak_game_init () {
 
     char mem_mode = 0;
     while (true) {
 
-        printf ("\nUse the exising database?\nprint y if yes, n if no\n");
+        printf ("\nUse the exising database?\n*type \"y\" if yes, \"n\" if no, \"e\" if you want to exit to the menu*\n");
+        fflush (stdin);
         scanf ("%c", &mem_mode);
-        if (mem_mode == EXISTING || mem_mode == NEW) {
+        if (mem_mode == EXISTING || mem_mode == NEW || mem_mode == EXIT) {
 
             break;
         }
 
         printf ("\nWrong input format, try again\n");
-        while (getchar () != '\n') ;
     }
+
+    if (mem_mode == EXIT) {
+
+        return;
+    }
+
+    bin_tree_t tree_ = {};
+    bin_tree_t *tree = &tree_;
+    bin_tree_ctor (tree);
 
     switch (mem_mode) {
 
         case EXISTING: {
 
-            node_t *root = load_database ();
+            if (load_database (tree) == DATABASE_EXITED) {
 
-            node_t *new_root = NULL;
-            bool round = true;
-
-            while (round) {
-
-                new_root = ak_game (root);
-                round = restart ();
+                bin_tree_dtor (tree);
+                return;
             }
 
-            save_database (new_root);
-            free_tree (new_root);
+            bool round = true;
+            printf ("\nNah boi now u won't exit till the game ends\n");
+            while (round) {
+
+                ak_game (tree);
+                round = restart ();
+            }
 
             break;
         }
 
         case NEW: {
 
-            node_t *root = (node_t *) calloc (1, sizeof (node_t));
-            root->data = "nobody";
-            node_t *new_root = NULL;
-            bool round = true;
+            char *nobody_str = (char *) calloc (7, sizeof (char));
+            strcpy (nobody_str, "nobody");                          // Тут костылина, ее бы поправить
+            bin_tree_add_leaf (tree, nobody_str);
 
+            bool round = true;
+            printf ("\nNah boi now u won't exit till the game ends\n");
             while (round) {
 
-                new_root = ak_game (root);
+                ak_game (tree);
                 round = restart ();
             }
-
-            save_database (new_root);
-            free_tree (new_root);
 
             break;
         }
     }
+
+    save_database (tree);
+    bin_tree_dtor (tree);
 }
 
 void ak_def_init () {
 
-    node_t *root = load_database ();
-    bool round = true;
+    bin_tree_t tree_ = {};
+    bin_tree_t *tree = &tree_;
+    bin_tree_ctor (tree);
+    if (load_database (tree) == DATABASE_EXITED) {
 
+        bin_tree_dtor (tree);
+        return;
+    }
+    
+    bool round = true;
     while (round) {
 
         char *obj_name = (char *) calloc (MAX_OBJ_NAME + 1, sizeof (char));
-        printf ("\nDefinition of which object would you like to see?");
+        printf ("\nDefinition of which object would you like to see? (you still can type \"e\" and rescue me from this nightmare)\n");
+        fflush (stdin);
         scanf ("%16s", obj_name);
+        if (obj_name [0] == 'e' && obj_name [1] == '\0') return;
 
-        ak_def (root, obj_name);
+        ak_def (tree, obj_name);
         free (obj_name);
         round = restart ();
     }
 
-    free_tree (root);
+    bin_tree_dtor (tree);
 }
 
 void ak_comp_init () {
 
-    node_t *root = load_database ();
-    bool round = true;
+    bin_tree_t tree_ = {};
+    bin_tree_t *tree = &tree_;
+    bin_tree_ctor (tree);
+    if (load_database (tree) == DATABASE_EXITED) {
 
+        bin_tree_dtor (tree);
+        return;
+    }
+    
+    bool round = true;
     while (round) {
 
         char *obj_name_1 = (char *) calloc (MAX_OBJ_NAME + 1, sizeof (char)), *obj_name_2 = (char *) calloc (MAX_OBJ_NAME + 1, sizeof (char));
-        printf ("\nEnter the name of the first object you want to be compared");
-        scanf ("%32s", obj_name_1);
-        printf ("\nEnter the name of the second object you want to be compared");
-        scanf ("%32s", obj_name_2);
 
-        ak_comp (root, obj_name_1, obj_name_2);
+        printf ("\nEnter the name of the first object you want to be compared or type \"e\" if you want to exit\n");
+        fflush (stdin);
+        scanf ("%32s", obj_name_1);
+        if (obj_name_1 [0] == 'e' && obj_name_1 [1] == '\0') return;
+
+        printf ("\nEnter the name of the second object you want to be compared or type \"e\" if you want to exit\n");
+        fflush (stdin);
+        scanf ("%32s", obj_name_2);
+        if (obj_name_1 [0] == 'e' && obj_name_1 [1] == '\0') return;
+
+        ak_comp (tree, obj_name_1, obj_name_2);
         free (obj_name_1);
         free (obj_name_2);
         round = restart ();
     }
 
-    free_tree (root);
+    bin_tree_dtor (tree);
 }
 
 void ak_vis_init () {
 
-    node_t *root = load_database ();
+    bin_tree_t tree_ = {};
+    bin_tree_t *tree = &tree_;
+    bin_tree_ctor (tree);
+    if (load_database (tree) == DATABASE_EXITED) {
 
-    ak_vis (root);
-    free_tree (root);
+        bin_tree_dtor (tree);
+        return;
+    }
+    ak_vis (tree);
+
+    bin_tree_dtor (tree);
 }
 
-node_t *load_database () {
+LOAD_DATABASE_RESULT load_database (bin_tree_t *tree) {
 
-    char file_name = (char *) calloc (_MAX_FNAME + 1, sizeof (char));
+    char *file_name = (char *) calloc (_MAX_FNAME + 1, sizeof (char));
     FILE *database_file = NULL;
     while (true) {
 
-        printf ("\nInsert the name of a database file");
+        printf ("\nEnter the name of a database file or just \"e\"\n");
         scanf ("%s", file_name);
+        if (file_name [0] == 'e' && file_name [1] == '\0') {
+            
+            free (file_name);
+            return DATABASE_EXITED;
+        }
 
         database_file = fopen (file_name, "r");
         if (database_file) {
@@ -125,25 +176,26 @@ node_t *load_database () {
         }
 
         printf ("\nNo such file in the directory, try again\n");
-        while (getchar () != '\n') ;
+        fflush (stdin);
     }
     free (file_name);
 
-    char *data_buffer = dload_database (database_file);
+    char *data_buffer = download_data_buffer (database_file);
     fclose (database_file);
 
-    node_t *root = make_tree (data_buffer);
+    make_ak_tree (tree, data_buffer);
     free (data_buffer);
 
-    return root;
+    return DATABASE_ENTERED;
 }
 
-void save_database (node_t *root) {
+void save_database (bin_tree_t *tree) {
 
     char save_mode = 0;
     while (true) {
 
-        printf ("\nSave the new database?\n*Print \"y\" if yes, \"n\" if no*");
+        printf ("\nSave the new database?\n*Print \"y\" if yes, \"n\" if no*\n");
+        fflush (stdin);
         scanf ("%c", &save_mode);
         if (save_mode == SAVE || save_mode == LEAVE) {
 
@@ -151,77 +203,42 @@ void save_database (node_t *root) {
         }
 
         printf ("\nWrong input format, try again\n");
-        while (getchar () != '\n') ;
+        fflush (stdin);
     }
     
     if (save_mode == SAVE) {
 
-        char file_name = (char *) calloc (_MAX_FNAME + 1, sizeof (char));
+        char *file_name = (char *) calloc (_MAX_FNAME + 1, sizeof (char));
 
-        printf ("\nEnter the name of the new database file");
+        printf ("\nEnter the name of the new database file\n");
+        fflush (stdin);
         scanf ("%256s", file_name);
         FILE *database_file = fopen (file_name, "w");
         free (file_name);
 
-        uload_database (database_file, root);
+        upload_tree_as_database (tree, database_file);
         fclose (database_file);
     }
 }
 
-node_t *ak_game (node_t *root) {            //  Технически тут можно развалить функцию на 2 подфункции; философский вопрос - а надо?
+void ak_game (bin_tree_t *tree) {
 
-    node_t *cur = root, *pre_cur = NULL;
-    bool branch = true;
-    while (cur->pos) {
-
-        char ans = 0;
-        while (true) {
-
-            printf ("\nIs this object %s?", cur->data);
-            scanf ("%c", &ans);
-            if (ans = YES || ans = NO) {
-
-                break;
-            }
-
-            printf ("\nWrong input format, try again\n");
-            while (getchar () != '\n') ;
-        }
-
-        switch (ans) {
-
-            case YES: {
-
-                pre_cur = cur;
-                branch = true;
-                cur = cur->pos;
-
-                break;
-            }
-
-            case NO: {
-
-                pre_cur = cur;
-                branch = false;
-                cur = cur->neg;
-
-                break;
-            }
-        }
-    }
+    tree->keyhole = NULL;
+    bin_node_t *leaf = bin_tree_move_keyhole_to (tree, ask_char);
 
     char ans = 0;
     while (true) {
 
-        printf ("\nIs this object a %s?", cur->data);
+        printf ("\nIs this object a %s?\n", leaf->data);
+        fflush (stdin);
         scanf ("%c", &ans);
-        if (ans = YES || ans = NO) {
+        if (ans == YES || ans == NO) {
 
             break;
         }
 
         printf ("\nWrong input format, try again\n");
-        while (getchar () != '\n') ;
+        fflush (stdin);
     }
 
     switch (ans) {
@@ -234,48 +251,48 @@ node_t *ak_game (node_t *root) {            //  Технически тут мо
 
         case NO: {
 
-            node_t *obj_node = (node_t *) calloc (1, sizeof (node_t));
-            obj_node->data = (char *) calloc (MAX_OBJ_NAME + 1, sizeof (char));
-            printf ("\nOh.. Alright, I can do with this\n\nWhat object were you thinking about, my dude?");
-            scanf ("%16s", obj_node->data);
+            printf ("\nOh.. Alright, I can do with this\n\nWhat object were you thinking about, my dude?\n");
+            fflush (stdin);
+            char *obj_data = (char *) calloc (MAX_OBJ_NAME + 1, sizeof (char));
+            scanf ("%16s", obj_data);
 
-            node_t *char_node = (node_t *) calloc (1, sizeof (node_t));
-            char_node->pos = obj_node;
-            char_node->neg = cur;
-            char_node->data = (char *) calloc (MAX_OBJ_CHAR + 1, sizeof (char));
-            printf ("\nWhat makes it different from the one I suggested?");
-            scanf ("%32s", char_node->data);
+            printf ("\nWhat makes it different from the one I suggested?\n");
+            fflush (stdin);
+            char *char_data = (char *) calloc (MAX_OBJ_CHAR + 1, sizeof (char));
+            scanf ("%32s", char_data);
 
-            if (pre_cur) {
-
-                switch (branch) {
-
-                    case true:
-                        pre_cur->pos = char_node;
-
-                    case false:
-                        pre_cur->neg = char_node;
-                }
-            } else {
-
-                root = char_node;
-            }
+            bin_tree_split_leaf (tree, obj_data, char_data);
 
             printf ("\nOk I remembered it\n");
-
             break;
         }
     }
-
-    return root;
 }
 
-void ak_def (node_t *root, char *obj_name) {        // В этой версии определение выводится "снизу вверх", т.к. "сверху вниз" требует стека и неясно вообще нафига
+static bool ask_char (const bin_node_t *node) {
 
-    bool round = true;
+    char ans = 0;
+    while (true) {
 
-    printf ("%s is, as far as I know");
-    if (seek_obj (root, obj_name) == true) {
+        printf ("\nIs this object %s?\n", node->data);
+        fflush (stdin);
+        scanf ("%c", &ans);
+        if (ans == YES || ans == NO) {
+
+            break;
+        }
+
+        printf ("\nWrong input format, try again\n");
+        fflush (stdin);
+    }
+
+    return (ans == YES) ? true : false;
+}
+
+void ak_def (bin_tree_t *tree, char *obj_name) {        // В этой версии определение выводится "снизу вверх", т.к. "сверху вниз" требует стека и неясно вообще нафига
+
+    printf ("\n%s is, as far as I know", obj_name);
+    if (bin_tree_bt_track_path (tree, obj_name, def_print_pos_char, def_print_neg_char)) {
             
         printf ("\n");
 
@@ -285,113 +302,127 @@ void ak_def (node_t *root, char *obj_name) {        // В этой версии 
     }
 }
 
-bool seek_obj (node_t *node, char *obj_name) {
+static void def_print_pos_char (const bin_node_t *char_node) {
 
-    if (node == NULL) {
-
-        return false;
-    }
-
-    if (strcmp (node->data, obj_name) == STRINGS_EQUAL) {
-
-        return true;
-    }
-
-    if (seek_obj (node->pos) == true) {
-
-        printf (", %s", node->data);
-        return true;
-    }
-
-    if (seek_obj (node->neg) == true) {
-
-        printf (", not %s", node->data);
-        return true;
-    }
-
-    return false;
+    printf (", %s", char_node->data);
 }
 
-void ak_comp (node_t *root, char *obj_name_1, char *obj_name_2) {       // Не ловит (вроде как и не должно) случаи, когда одинаковые свойства дублируются в разных бранчах
+static void def_print_neg_char (const bin_node_t *char_node) {
 
-    stack_t stk_1 = {};
-    stack_t *stk_1_p = &stk_1;
-    stack_ctor (stk_1_p);
-    if (track_obj (root, obj_name_1, stk_1_p) == false) {
+    printf (", not %s", char_node->data);
+}
+
+void ak_comp (bin_tree_t *tree, char *obj_name_1, char *obj_name_2) {       // Не ловит (вроде как и не должно) случаи, когда одинаковые свойства дублируются в разных бранчах
+
+    node_stack_t stk_1 = {};
+    node_stack_t *stk_1_p = &stk_1;
+    node_stack_ctor (stk_1_p);
+    if (bin_tree_tb_stack_path (tree, obj_name_1, stk_1_p) == NULL) {
 
         printf ("\n%s is, as far as I know, not mentioned in the database\n", obj_name_1);
-        stack_dtor (stk_1_p);
+        node_stack_dtor (stk_1_p);
         return;
     }
 
     if (strcmp (obj_name_1, obj_name_2) == STRINGS_EQUAL) {
 
-        node_t *cur = stack_pop (stk_1_p);
-        node_t *next = stack_shadow_pop (stk_1_p);
-        if (next != NULL) {
+        comp_print_similar_path (stk_1_p, obj_name_1, obj_name_2);
 
-            printf ("\n%s and %s are both", obj_name_1, obj_name_2);
-            do {
-
-                if (next == cur->pos) {
-
-                    printf (" %s,", cur->data);
-
-                } else {
-
-                    printf (" not %s,", cur->data);
-                }
-
-                cur = stack_pop (stk_1_p);
-                next = stack_shadow_pop (stk_1_p);
-                
-            } while (next != NULL);
-
-        } else {
-
-            printf ("\nNo characteristics of these objects found\n");
-        }
-
-        stack_dtor (stk_1_p);
+        node_stack_dtor (stk_1_p);
         return;
     } 
 
-    stack_t stk_2 = {};
-    stack_t *stk_2_p = &stk_2;
-    stack_ctor (stk_2_p);
-    if (track_obj (root, obj_name_2, stk_2_p) == false) {
+    node_stack_t stk_2 = {};
+    node_stack_t *stk_2_p = &stk_2;
+    node_stack_ctor (stk_2_p);
+    if (bin_tree_tb_stack_path (tree, obj_name_2, stk_2_p) == NULL) {
 
         printf ("\n%s is, as far as I know, not mentioned in the database\n", obj_name_2);
-        stack_dtor (stk_1_p);
-        stack_dtor (stk_2_p);
+        node_stack_dtor (stk_1_p);
+        node_stack_dtor (stk_2_p);
         return;
     }
 
-    node_t *cur_1 = stack_pop (stk_1_p);
-    node_t *cur_2 = stack_pop (stk_2_p);
-    node_t *next_1 = stack_shadow_pop (stk_1_p);
-    node_t *next_2 = stack_shadow_pop (stk_2_p);
+    comp_print_path_comparison (stk_1_p, stk_2_p, obj_name_1, obj_name_2);
 
-    if (next_1 == next_2) {
+    node_stack_dtor (stk_1_p);
+    node_stack_dtor (stk_2_p);
+}
+
+static void comp_print_similar_path (node_stack_t *path_stack, char *obj_name_1, char *obj_name_2) {
+
+    bin_node_t *cur = node_stack_pop (path_stack);
+    bin_node_t *next = node_stack_shadow_pop (path_stack);
+    if (next != NULL) {
 
         printf ("\n%s and %s are both", obj_name_1, obj_name_2);
         do {
 
-            if (next_1 == cur_1->pos) {
+            if (next == cur->pos) {
 
-                printf (" %s,", cur_1->data);
+                printf (" %s,", cur->data);
 
             } else {
 
-                printf (" not %s,", cur_1->data);
+                printf (" not %s,", cur->data);
             }
 
-            cur_1 = stack_pop (stk_1_p);
-            cur_2 = stack_pop (stk_2_p);
-            next_1 = stack_shadow_pop (stk_1_p);
-            next_2 = stack_shadow_pop (stk_2_p);
+            cur = node_stack_pop (path_stack);
+            next = node_stack_shadow_pop (path_stack);
+                
+        } while (next != NULL);
+
+    } else {
+
+        printf ("\nNo characteristics of these objects found\n");
+    }
+}
+
+static void comp_print_path_comparison (node_stack_t *path_stack_1, node_stack_t *path_stack_2, char *obj_name_1, char *obj_name_2) {
+
+    bin_node_t *cur_1 = node_stack_pop (path_stack_1);
+    bin_node_t *cur_2 = node_stack_pop (path_stack_2);
+    bin_node_t *next_1 = node_stack_shadow_pop (path_stack_1);
+    bin_node_t *next_2 = node_stack_shadow_pop (path_stack_2);
+
+    if (next_1 == next_2) {
+
+        bool first_common_char = true;
+        printf ("\n%s and %s are both", obj_name_1, obj_name_2);
+        do {
+            
+            bin_node_t *preliminary_cur_1 = node_stack_pop (path_stack_1);
+            cur_2 = node_stack_pop (path_stack_2);
+            bin_node_t *preliminary_next_1 = node_stack_shadow_pop (path_stack_1);
+            next_2 = node_stack_shadow_pop (path_stack_2);
+
+            if (!first_common_char) {
+
+                if (next_2 == preliminary_next_1) {
+
+                    printf (",");
+
+                } else {
+
+                    printf (" and");
+                }
+            }
+
+            if (next_1 == cur_1->pos) {
+
+                printf (" %s", cur_1->data);
+
+            } else {
+
+                printf (" not %s", cur_1->data);
+            }
+
+            cur_1 = preliminary_cur_1;
+            next_1 = preliminary_next_1;
+            first_common_char = false;
 
         } while (next_1 == next_2);
+        printf (",");
 
         printf (" but %s is", obj_name_1);
 
@@ -411,8 +442,8 @@ void ak_comp (node_t *root, char *obj_name_1, char *obj_name_2) {       // Не 
             printf (" not %s,", cur_1->data);
         }
 
-        cur_1 = stack_pop (stk_1_p);
-        next_1 = stack_shadow_pop (stk_1_p);
+        cur_1 = node_stack_pop (path_stack_1);
+        next_1 = node_stack_shadow_pop (path_stack_1);
 
     } while (next_1 != NULL);
 
@@ -428,75 +459,22 @@ void ak_comp (node_t *root, char *obj_name_1, char *obj_name_2) {       // Не 
             printf (" not %s,", cur_2->data);
         }
 
-        cur_2 = stack_pop (stk_2_p);
-        next_2 = stack_shadow_pop (stk_2_p);
+        cur_2 = node_stack_pop (path_stack_2);
+        next_2 = node_stack_shadow_pop (path_stack_2);
 
     } while (next_2 != NULL);
 
     printf (" respectively\n");
-
-    stack_dtor (stk_1_p);
-    stack_dtor (stk_2_p);
 }
 
-bool track_obj (node_t *node, char *obj_name, stack_t *stack) {
+void ak_vis (bin_tree_t *tree) {            // В этой версии отсутствует как явление рукодельная буферизация (может, ее стоит добавить?)
 
-    if (node == NULL) {
-
-        return false;
-    }
-
-    if (strcmp (node->data, obj_name) == STRINGS_EQUAL) {
-
-        stack_push (stack, node);
-        return true;
-    }
-
-    if (track_obj (node->pos) == true || track_obj (node->neg) == true) {
-
-        stack_push (stack, node);
-        return true;
-    }
-
-    return false;
-}
-
-void ak_vis (node_t *root) {            // В этой версии отсутствует как явление рукодельная буферизация (может, ее стоит добавить?)
-
-    FILE *instr_file = fopen ("vis_instr.gv", "w");
-    fprintf (instr_file, "digraph vis{\n\trankdir=TB;");
-    print_node (root, instr_file);
-    fprintf (instr_file, "\n}");
-    fclose (instr_file);
-
-    char *pic_file_name = calloc (_MAX_FNAME, sizeof (char));
-    printf ("\nEnter the name of the file to place the scheme");
+    char *pic_file_name = (char *) calloc (_MAX_FNAME, sizeof (char));
+    printf ("\nEnter the name of the file to place the scheme\n");
+    fflush (stdin);
     scanf ("%256s", pic_file_name);
 
-    /*
-    char *cmd = (char *) calloc (_MAX_FNAME + 30, sizeof (char));
-    sprintf (cmd, "dot -Tpng vis_instr.gv -o %s", pic_file_name);
-    system (cmd);
-    free (cmd);
-    */
-}
-
-int print_node (node_t *node, FILE *instr_file, int ident /* = 0 */) {      // Функция получает на вход НОМЕР текущего шага рекурсии (т.е. НАИМЕНЬШИЙ незанятый идентификатор), возвращает НАИБОЛЬШИЙ занятый идентификатор
-
-    if (node->pos == NULL) {
-
-        fprintf (instr_file, "\n\t%d [shape=record,label=\" <dat> %s | { <neg> NULL | <pos> NULL } \"];", ident, node->data);
-        return ident;
-    }
-
-    fprintf (instr_file, "\n\t%d [shape=record,label=\" <dat> %s | { <neg> neg | <pos> pos } \"];", ident, node->data);
-
-    int ident_2 = print_node (node->neg, instr_file, ident   + 1);
-    int ident_3 = print_node (node->pos, instr_file, ident_2 + 1);
-    fprintf (instr_file, "\n\t%d:<neg> -> %d:<dat>;", ident, ident   + 1);
-    fprintf (instr_file, "\n\t%d:<neg> -> %d:<dat>;", ident, ident_2 + 1);
-
-    return ident_3;
+    bin_tree_vis_dump (tree, pic_file_name);
 }
 
 bool restart () {
@@ -504,15 +482,16 @@ bool restart () {
     char restart_ans = 0;
     while (true) {
 
-        printf ("\nWanna repeat, my dude?");
+        printf ("\nWanna repeat, my dude?\n");
+        fflush (stdin);
         scanf ("%c", &restart_ans);
-        if (restart_ans = YES || restart_ans = NO) {
+        if (restart_ans == YES || restart_ans == NO) {
 
             break;
         }
 
         printf ("\nWrong input format, try again\n");
-        while (getchar () != '\n') ;
+        fflush (stdin);
     }
 
     if (restart_ans == NO) {
@@ -525,17 +504,33 @@ bool restart () {
     }
 }
 
-node_t *make_tree (char *data_buffer) {
+void make_ak_tree (bin_tree_t *tree, char *data_buffer) {       // По-хорошему тут надо верифицировать пустоту дерева
 
-    return make_node ()
+    char *data_ptr = data_buffer;
+    tree->root = scan_node (&data_ptr);
 }
 
-node_t *make_node (char *data) {
+static bin_node_t *scan_node (char **data_ptr) {
 
+    *data_ptr += 2;
+    char *line_end = strchr (*data_ptr, '\n');
+    *(line_end) = '\0';
+    char *data_seg = strdup (*data_ptr);
+    *data_ptr = line_end + 1;
 
+    bin_node_t *node = bin_tree_create_leaf (data_seg);
+
+    if (**data_ptr != '}') {
+
+        node->pos = scan_node (data_ptr);
+        node->neg = scan_node (data_ptr);
+    }
+    
+    *data_ptr += 2;
+    return node;
 }
 
-char *dload_database (FILE *database_file) {
+char *download_data_buffer (FILE *database_file) {
 
     size_t file_size = get_file_size (database_file);
     char *data_buffer = (char *) calloc (file_size + 1, sizeof (char));
@@ -544,17 +539,25 @@ char *dload_database (FILE *database_file) {
     return data_buffer;
 }
 
-void uload_database (FILE *database_file, node_t *root) {
+void upload_tree_as_database (bin_tree_t *tree, FILE *database_file) {
 
-
+    upload_node (tree->root, database_file);
 }
 
-void free_tree (node_t *root) {
+static void upload_node (bin_node_t *node, FILE *database_file) {
 
+    fprintf (database_file, "{\n%s\n", node->data);
 
+    if (node->pos != NULL) {
+
+        upload_node (node->pos, database_file);
+        upload_node (node->neg, database_file);
+    }
+
+    fprintf (database_file, "}\n");
 }
 
-size_t get_file_size (FILE* const file_in) {
+static size_t get_file_size (FILE* const file_in) {
 
     assert (file_in);
 
