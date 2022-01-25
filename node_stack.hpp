@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <string.h>
 #include "bin_node.hpp"
+#include "common.hpp"
 
 #define NODST_OS_RESERVED_ADDRESS 1
 

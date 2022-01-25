@@ -322,7 +322,7 @@ void bin_tree_vis_dump (bin_tree_t *tree, char *file_name) {
     fprintf (instr_file, "\n}");
     fclose (instr_file);
 
-    char *cmd = (char *) calloc (_MAX_FNAME + 30, sizeof (char));
+    char *cmd = (char *) calloc (MAX_FILE_NAME + 30, sizeof (char));
     sprintf (cmd, "dot -Tpng vis_instr.gv -o %s", file_name);
     system (cmd);
     free (cmd);
@@ -370,25 +370,17 @@ bin_node_t *bin_tree_move_keyhole_to (bin_tree_t *tree, bool (*walk_node) (const
 
         bool branch = walk_node (cur);
 
-        switch (branch) {
+        if (branch == true) {
 
-            case true: {
+            tree->keyhole = cur;
+            tree->keybranch = true;
+            cur = cur->pos;
 
-                tree->keyhole = cur;
-                tree->keybranch = true;
-                cur = cur->pos;
+        } else {
 
-                break;
-            }
-
-            case false: {
-
-                tree->keyhole = cur;
-                tree->keybranch = false;
-                cur = cur->neg;
-
-                break;
-            }
+            tree->keyhole = cur;
+            tree->keybranch = false;
+            cur = cur->neg;
         }
     }
 

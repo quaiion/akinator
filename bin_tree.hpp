@@ -9,6 +9,7 @@
 #include <string.h>
 #include "bin_node.hpp"
 #include "node_stack.hpp"
+#include "common.hpp"
 
 #define BINTR_STRINGS_EQUAL 0
 #define BINTR_OS_RESERVED_ADDRESS 1

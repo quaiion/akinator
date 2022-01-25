@@ -10,13 +10,14 @@ int main () {
 
             printf ("\nChoose the mode (or type \"e\" if you want to exit):\n1. Standard game\n2. Definition\n3. Comparison\n4. Visualization\n");
             scanf ("%c", &mode);
+            flush_input_buffer (mode);
+
             if (mode == GAME || mode == DEFINE || mode == COMPARE || mode == VISUALIZE || mode == EXIT) {
 
                 break;
             }
 
             printf ("\nWrong input format, try again\n");
-            fflush (stdin);
         }
 
         switch (mode) {
@@ -50,7 +51,5 @@ int main () {
                 return 0;
             }
         }
-
-        fflush (stdin);
     }
 }
