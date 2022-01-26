@@ -14,7 +14,7 @@
 #define BINTR_STRINGS_EQUAL 0
 #define BINTR_OS_RESERVED_ADDRESS 1
 
-constexpr int DEFAULT_NODE_TBL_SIZE = 16;
+constexpr size_t DEFAULT_NODE_TBL_SIZE = 16;
 
 struct bin_tree_t {
 

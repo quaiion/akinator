@@ -13,13 +13,14 @@ node, фактически обозначающего узел, с которы�
 */
 
 static void free_node (bin_node_t *node);
-static int dump_node (bin_node_t *node, FILE *instr_file, int ident = 0);
+static size_t dump_node (bin_node_t *node, FILE *instr_file, size_t ident = 0);
 static bin_node_t *bt_track_node (bin_node_t *node, char *target_name,
                                   void (*spot_pos_node) (const bin_node_t *), void (*spot_neg_node) (const bin_node_t *));
 static bin_node_t *tb_stack_node (bin_node_t *node, char *target_name, node_stack_t *stack);
 static bin_node_t *qck_node_verify (bin_node_t *node, VERIFICATION_CODES *ver_code);
-static bin_node_t *slw_node_verify (bin_node_t *node, int *node_idx, bin_node_t **node_tbl, int *node_tbl_size, VERIFICATION_CODES *ver_code);
-static bin_node_t *node_tbl_search (bin_node_t *node, int node_idx, bin_node_t **node_tbl);
+static bin_node_t *slw_node_verify (bin_node_t *node, size_t *node_idx, bin_node_t **node_tbl, size_t *node_tbl_size, VERIFICATION_CODES *ver_code);
+static bin_node_t *node_tbl_search (bin_node_t *node, size_t node_idx, bin_node_t **node_tbl);
+static bin_node_t **node_tbl_resize (bin_node_t **node_tbl, size_t *node_tbl_size);
 
 void bin_tree_ctor (bin_tree_t *tree) {
 
@@ -323,29 +324,28 @@ void bin_tree_vis_dump (bin_tree_t *tree, char *file_name) {
     fclose (instr_file);
 
     char *cmd = (char *) calloc (MAX_FILE_NAME + 30, sizeof (char));
-    sprintf (cmd, "dot -Tpng vis_instr.gv -o %s", file_name);
+    sprintf (cmd, "dot -Tpng vis_instr.gv -o %s\ndel vis_instr.gv", file_name);             // IMO
     system (cmd);
     free (cmd);
 }
 
-static int dump_node (bin_node_t *node, FILE *instr_file, int ident /* = 0 */) {      // Функция получает на вход НОМЕР текущего шага рекурсии (т.е. НАИМЕНЬШИЙ незанятый идентификатор), возвращает НАИБОЛЬШИЙ занятый идентификатор
+static size_t dump_node (bin_node_t *node, FILE *instr_file, size_t ident /* = 0 */) {      // Функция получает на вход НОМЕР текущего шага рекурсии (т.е. НАИМЕНЬШИЙ незанятый идентификатор), возвращает НАИБОЛЬШИЙ занятый идентификатор
 
     assert (node);
     assert (instr_file);
-    assert (ident >= 0);
 
     if (node->pos == NULL) {
 
-        fprintf (instr_file, "\n\t%d [shape=record,label=\" { <dat> %s | { <neg> NULL | <pos> NULL }} \"];", ident, node->data);
+        fprintf (instr_file, "\n\t%llu [shape=record,label=\" { <dat> %s | { <neg> NULL | <pos> NULL }} \"];", ident, node->data);
         return ident;
     }
 
-    fprintf (instr_file, "\n\t%d [shape=record,label=\" { <dat> %s | { <neg> neg | <pos> pos }} \"];", ident, node->data);
+    fprintf (instr_file, "\n\t%llu [shape=record,label=\" { <dat> %s | { <neg> neg | <pos> pos }} \"];", ident, node->data);
 
-    int ident_2 = dump_node (node->neg, instr_file, ident   + 1);
-    int ident_3 = dump_node (node->pos, instr_file, ident_2 + 1);
-    fprintf (instr_file, "\n\t%d:<neg> -> %d:<dat>;", ident, ident   + 1);
-    fprintf (instr_file, "\n\t%d:<pos> -> %d:<dat>;", ident, ident_2 + 1);
+    size_t ident_2 = dump_node (node->neg, instr_file, ident   + 1);
+    size_t ident_3 = dump_node (node->pos, instr_file, ident_2 + 1);
+    fprintf (instr_file, "\n\t%llu:<neg> -> %llu:<dat>;", ident, ident   + 1);
+    fprintf (instr_file, "\n\t%llu:<pos> -> %llu:<dat>;", ident, ident_2 + 1);
 
     return ident_3;
 }
@@ -521,8 +521,8 @@ bin_node_t *bin_tree_verify_slw (bin_tree_t *tree, VERIFICATION_CODES *ver_code 
     assert (tree);
 
     bin_node_t **node_tbl = (bin_node_t **) calloc (DEFAULT_NODE_TBL_SIZE, sizeof (bin_node_t *));
-    int node_tbl_size = DEFAULT_NODE_TBL_SIZE;
-    int node_idx = 0;
+    size_t node_tbl_size = DEFAULT_NODE_TBL_SIZE;
+    size_t node_idx = 0;
     if (ver_code) {
 
         *ver_code = DEFAULT;
@@ -534,7 +534,7 @@ bin_node_t *bin_tree_verify_slw (bin_tree_t *tree, VERIFICATION_CODES *ver_code 
     return res;
 }
 
-static bin_node_t *slw_node_verify (bin_node_t *node, int *node_idx, bin_node_t **node_tbl, int *node_tbl_size, VERIFICATION_CODES *ver_code) {
+static bin_node_t *slw_node_verify (bin_node_t *node, size_t *node_idx, bin_node_t **node_tbl, size_t *node_tbl_size, VERIFICATION_CODES *ver_code) {
 
     assert (node_tbl);
     assert (node_idx);
@@ -573,9 +573,9 @@ static bin_node_t *slw_node_verify (bin_node_t *node, int *node_idx, bin_node_t 
 
     if (*node_idx == *node_tbl_size) {
 
-        node_tbl = (bin_node_t **) realloc (node_tbl, *node_tbl_size * 2);
-        *node_tbl_size *= 2;
+        node_tbl = node_tbl_resize (node_tbl, node_tbl_size);
     }
+
     node_tbl [(*node_idx) ++] = node;
 
     bin_node_t *pos_check = slw_node_verify (node->pos, node_idx, node_tbl, node_tbl_size, ver_code);
@@ -587,9 +587,9 @@ static bin_node_t *slw_node_verify (bin_node_t *node, int *node_idx, bin_node_t 
     return slw_node_verify (node->neg, node_idx, node_tbl, node_tbl_size, ver_code);
 }
 
-static bin_node_t *node_tbl_search (bin_node_t *node, int node_idx, bin_node_t **node_tbl) {
+static bin_node_t *node_tbl_search (bin_node_t *node, size_t node_idx, bin_node_t **node_tbl) {
 
-    for (int i = 0; i < node_idx; ++ i) {
+    for (size_t i = 0; i < node_idx; ++ i) {
 
         if (node_tbl [i] == node) {
             
@@ -598,4 +598,10 @@ static bin_node_t *node_tbl_search (bin_node_t *node, int node_idx, bin_node_t *
     }
 
     return NULL;
+}
+
+static bin_node_t **node_tbl_resize (bin_node_t **node_tbl, size_t *node_tbl_size) {
+
+    *node_tbl_size *= 2;
+    return ((bin_node_t **) realloc (node_tbl, *node_tbl_size));
 }
